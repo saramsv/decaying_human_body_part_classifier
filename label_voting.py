@@ -3,6 +3,11 @@
 import pandas as pd
 import operator
 import sys
+pd.set_option('display.max_columns', None)  
+pd.set_option('display.expand_frame_repr', False)
+pd.set_option('max_colwidth', -1)
+pd.set_option('display.max_rows', 1000)  
+
 
 file_name = sys.argv[1]
 
@@ -20,9 +25,17 @@ for i in range(num_seq_uniq):
     counts = dict((x, predicted_labels.count(x)) for x in set(predicted_labels))
     frequent_label = max(counts.items(), key = operator.itemgetter(1))[0].strip()
 
-    confs = list(labels['conf'].values)
-    counts_conf = dict((x, confs.count(x)) for x in set(confs))
-    frequent_conf = max(counts_conf.items(), key = operator.itemgetter(1))[0]
+    #confs = list(labels['conf'].values)
+    #counts_conf = dict((x, confs.count(x)) for x in set(confs))
+    #frequent_conf = max(counts_conf.items(), key = operator.itemgetter(1))[0]
 
     
-    print(labels['seq'].unique()[0], ":",  frequent_label, ":", frequent_conf)
+    #print(labels['seq'].unique()[0], ":",  frequent_label, ":", frequent_conf)
+    labels['label'] = frequent_label
+    print(labels)
+
+
+
+
+
+

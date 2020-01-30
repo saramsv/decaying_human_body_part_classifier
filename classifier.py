@@ -32,10 +32,8 @@ import pickle
 
 train_data = sys.argv[1] 
 #model_names = ['resnet', 'vgg', 'inception'] 
-model_names = ['inception'] 
+model_names = ['resnet'] 
 
-import bpython
-bpython.embed(locals())
 
 VAL_SIZE = 0.30
 TEST_SIZE = 0.15
@@ -56,42 +54,10 @@ batch_size = 32
 
 for model_name in model_names:
 
-    if model_name == 'vgg':
-        inp = Input((vgg_resnet_img_size, vgg_resnet_img_size, 3))
-        model = VGG16(include_top = False, weights='imagenet', 
-                                        input_tensor = inp, input_shape = (vgg_resnet_img_size, vgg_resnet_img_size, 3),
-                                        pooling = 'avg')
-
-    if model_name == 'resnet':
-        inp = Input((vgg_resnet_img_size, vgg_resnet_img_size, 3))
-        model = ResNet50(include_top = False, weights='imagenet', 
-                                        input_tensor = inp, input_shape = (vgg_resnet_img_size, vgg_resnet_img_size, 3),
-                                        pooling = 'avg')
-    if model_name == 'inception':
-        inp = Input((inception_img_size, inception_img_size, 3))
-        model = InceptionV3(include_top = False, weights='imagenet', 
-                                        input_tensor = inp, input_shape = (inception_img_size, inception_img_size, 3), 
-                                        pooling = 'avg')
-
-    x = model.output
-    x = Dense(256, activation='relu')(x)
-    x = Dropout(0.1)(x)
-    out = Dense(num_classes, activation='softmax')(x)
-
-    model = Model(inp, out)
-
-    #model = multi_gpu_model(model, gpus = 4)
-
-    sgd = optimizers.SGD(lr=0.001, decay=1e-6, momentum=0.9, nesterov=True, clipvalue = 0.5)
-
-    #inceptionV3_model.compile(optimizer = 'sgd', loss = 'categorical_crossentropy', metrics=['accuracy'])
-    model.compile(optimizer = 'sgd', loss = 'categorical_crossentropy', metrics=['acc'])
 
     not_found = 0
-    #if model_name != 'vgg': # becase for vgg the same data that was used for resnet will work
     data = []
     labels = []
-
     with open(train_data, 'r') as file_:
         csv_reader = csv.reader(file_, delimiter = ":")
         for row in csv_reader:
@@ -100,10 +66,12 @@ for model_name in model_names:
                 try:
                     if model_name == 'inception':
                         img = image.load_img(row[0].strip(), 
-                                target_size = (inception_img_size, inception_img_size, 3), grayscale = False)
+                                target_size = (inception_img_size, 
+                                    inception_img_size, 3), grayscale = False)
                     else:
                         img = image.load_img(row[0].strip(), 
-                                target_size = (vgg_resnet_img_size, vgg_resnet_img_size, 3), grayscale = False)
+                                target_size = (vgg_resnet_img_size, 
+                                    vgg_resnet_img_size, 3), grayscale = False)
 
                     img = image.img_to_array(img)
                     img = img/255
@@ -112,27 +80,67 @@ for model_name in model_names:
 
                 except:
                     not_found += 1
+    #sample_sizes = [1000, 2000, 3000, 4000, 5000,6000,
+    #        7000, 8000, 9000, 10000, 11000, 12000, len(data)]
+    sample_sizes = [8000, 9000, 10000, 11000, 12000, len(data)]
+    for sample_size in sample_sizes:
+        if model_name == 'vgg':
+            inp = Input((vgg_resnet_img_size, vgg_resnet_img_size, 3))
+            model = VGG16(include_top = False, weights='imagenet', 
+                                            input_tensor = inp, 
+                                            input_shape = (vgg_resnet_img_size, 
+                                                vgg_resnet_img_size, 3),
+                                            pooling = 'avg')
 
-    data = np.array(data)
-    labels = to_categorical(np.array(labels), num_classes = num_classes)
+        if model_name == 'resnet':
+            inp = Input((vgg_resnet_img_size, vgg_resnet_img_size, 3))
+            model = ResNet50(include_top = False, weights='imagenet', 
+                                            input_tensor = inp, 
+                                            input_shape = (vgg_resnet_img_size,
+                                                vgg_resnet_img_size, 3),
+                                            pooling = 'avg')
+        if model_name == 'inception':
+            inp = Input((inception_img_size, inception_img_size, 3))
+            model = InceptionV3(include_top = False, weights='imagenet', 
+                                            input_tensor = inp, 
+                                            input_shape = (inception_img_size, 
+                                                inception_img_size, 3), 
+                                            pooling = 'avg')
+        #for layer in model.layers:
+        #    layer.trainable = False
+        x = model.output
+        x = Dense(256, activation='relu')(x)
+        x = Dropout(0.1)(x)
+        out = Dense(num_classes, activation='softmax')(x)
 
-    X_train, X_test, y_train, y_test = train_test_split(data, labels, 
-             test_size=0.3)
+        model = Model(inp, out)
+        #model = multi_gpu_model(model, gpus = 4)
+        sgd = optimizers.SGD(lr=0.001, decay=1e-6, momentum=0.9, nesterov=True, clipvalue = 0.5)
+        es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=50)
+
+        #inceptionV3_model.compile(optimizer = 
+        #'sgd', loss = 'categorical_crossentropy', metrics=['accuracy'])
+        model.compile(optimizer = 'sgd', loss = 'categorical_crossentropy', metrics=['acc'])
+        #d = random.choices(data, sample_size)
+        d = data[0:sample_size]
+        l = labels[0:sample_size]
+        data1 = np.array(d)
+        labels1 = to_categorical(np.array(l), num_classes = num_classes)
+
+        X_train, X_test, y_train, y_test = train_test_split(data1, labels1, 
+                 test_size=0.3)
+
+        checkpoint = ModelCheckpoint(model_name + '_' + str(sample_size) + '_epoch_-{epoch:03d}-_acc_{acc:03f}-_val_acc_{val_acc:.5f}.h5', verbose=1, monitor='val_acc', save_best_only=True, mode='auto')  
+         
+        train_datagen = ImageDataGenerator()#rescale=1./255)
+        val_datagen = ImageDataGenerator()#rescale=1./255)
 
 
-
-    checkpoint = ModelCheckpoint(model_name + '_5000_random_epoch_-{epoch:03d}-_acc_{acc:03f}-_val_acc_{val_acc:.5f}.h5', verbose=1, monitor='val_acc', save_best_only=True, mode='auto')  
-     
-    train_datagen = ImageDataGenerator()#rescale=1./255)
-    val_datagen = ImageDataGenerator()#rescale=1./255)
-
-
-    history = model.fit_generator(train_datagen.flow(X_train, y_train, batch_size=batch_size), 
-                                                        steps_per_epoch = len(X_train) // batch_size,
-                                                        validation_data=val_datagen.flow(X_test,
-                                                            y_test, batch_size=batch_size), 
-                                                        validation_steps=(len(X_test))//batch_size,
-                                                        callbacks=[checkpoint],
-                                                        epochs = 100, verbose = 1) 
+        history = model.fit_generator(train_datagen.flow(X_train, y_train, batch_size=batch_size)
+                ,steps_per_epoch = len(X_train) // batch_size
+                ,validation_data=val_datagen.flow(X_test,y_test, batch_size=batch_size), 
+                validation_steps=(len(X_test))//batch_size
+                ,callbacks=[checkpoint, es]
+                ,epochs = 125, verbose = 1) 
 
 

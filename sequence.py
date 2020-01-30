@@ -26,13 +26,30 @@ def key_func(x):
             return datetime.datetime.strptime(date_, '%m%d%y')
         else:
             return datetime.datetime.strptime(date_, '%m%d%Y')
-        
     except:
         print(x)
         import bpython
         bpython.embed(locals())
         exit()
 
+def convert_to_time(img_name):
+    if '(' in img_name:     
+        date_ = img_name.split('D_')[-1].split('(')[0].strip()
+    else:
+        date_ = img_name.split('D_')[-1].split('.')[0].strip()
+    mdy = date_.split('_')
+    m = mdy[0]
+    d = mdy[1]
+    y = mdy[2]
+    if len(m) == 1:
+        m = '0' + m
+    if len(d) == 1:
+        d = '0' + d
+    date_  = m + d + y
+    if len(date_) == 6: #the format that has 2 digits for year
+        return datetime.datetime.strptime(date_, '%m%d%y')
+    else:
+        return datetime.datetime.strptime(date_, '%m%d%Y')
 def cosine_similarity(v1,v2):
     "compute cosine similarity of v1 to v2: (v1 dot v2)/{||v1||*||v2||)"
     sumxx, sumxy, sumyy = 0, 0, 0
@@ -65,6 +82,49 @@ def overlap_merge(all_sims):
         all_sims = merged_dict
     return all_sims 
 #########################################################################
+def similarity_merge(all_sims, donor2img2embeding, donor2day2img, donor):
+    no_more_merge = False
+    while no_more_merge == False:
+        merged_dict = {}
+        seen = []
+        all_sims_keys = list(all_sims.keys())
+        no_more_merge = True
+
+        for key1 in all_sims_keys:
+            if key1 in seen:
+                continue
+
+            if key1 not in merged_dict :
+                # to remove the duplicates
+                merged_dict[key1] = list(set(all_sims[key1]))
+
+            one2nsimi = []
+            for key2 in all_sims_keys:
+                if all_sims_keys.index(key2) <= all_sims_keys.index(key1):
+                    continue
+                head, tail, tail_size = find_tail_head(all_sims, key1, key2)
+                if tail_size >= 1 :
+                    similarity = []
+                    for img_index in range(tail_size):
+                        emb1 = donor2img2embeding[donor][tail[img_index]]
+                        emb2 = donor2img2embeding[donor][head[img_index]]
+                        simi = cosine_similarity(emb1, emb2)
+                        similarity.append(simi)
+                    sub_seq_simi = sum(similarity) / tail_size
+                    one2nsimi.append([key2,sub_seq_simi])
+            if len(one2nsimi) > 0:
+                one2nsimi = sorted(one2nsimi, key=lambda x: x[1], reverse=True)
+                val = max(one2nsimi[0][1], 0.83)
+                if one2nsimi[0][1] >= val:
+                    #one2nsimi.append([key2,sub_seq_simi])
+                    no_more_merge = False
+                    merged_dict[key1].extend(list(set(all_sims[one2nsimi[0][0]])))
+                    merged_dict[key1] = sorted(merged_dict[key1], key = key_func)
+                    seen.append(one2nsimi[0][0])
+        all_sims = merged_dict
+    print_(merged_dict, donor)
+
+####################################################################
 def find_tail_head(all_sims, key1, key2):
     list1 = sorted(all_sims[key1], key = key_func)
     list2 = sorted(all_sims[key2], key = key_func)
@@ -106,7 +166,8 @@ def find_tail_head(all_sims, key1, key2):
 def add_to_similarity_dict(all_sims, similarities, key):#, ratio):
     similarities = sorted(similarities, key=lambda x: x[1], reverse=True)
     max_ = similarities[0][1]
-    threshold = max(0.99 * max_, 0.80)
+    threshold = max(0.99 * max_, 0.89)
+    #print(max_, threshold)
     if key not in all_sims:
         all_sims[key] = [key]
     for ind, pair in enumerate(similarities):
@@ -139,8 +200,7 @@ def sequence_finder(donor2img2embeding, donor2day2img):
         days.sort()
         all_embs = donor2img2embeding[donor]
         all_sims = {} #key = imgs, value = [[im1, dist],im2, dit[],...]
-
-        window_size = 6
+        window_size = 5
         compared = []
         windows = rolling_window(np.array(range(len(days))), window_size)
         #print(windows)
@@ -173,6 +233,7 @@ def sequence_finder(donor2img2embeding, donor2day2img):
 
         #print_(all_sims, donor)
         all_sims = overlap_merge(all_sims)
-        print_(all_sims, donor)
+        #print_(all_sims, donor)
 
 
+        similarity_merge(all_sims, donor2img2embeding, donor2day2img, donor)
