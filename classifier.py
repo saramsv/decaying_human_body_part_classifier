@@ -11,28 +11,18 @@ from keras.models import Sequential
 from keras.models import Model
 import keras.backend as K
 from keras.utils import to_categorical
-import pickle
 from keras.applications import VGG16
 from keras.applications import ResNet50
 from keras import optimizers
 from sklearn.model_selection import train_test_split
 from keras.callbacks import EarlyStopping
 from keras.callbacks import ModelCheckpoint
-#from keras.utils import multi_gpu_model
-
-from os import mkdir
-import glob
-import random
-import shutil
 import os
 import csv
 import sys
-import pickle
 
 
 train_data = sys.argv[1] 
-#model_names = ['resnet', 'vgg', 'inception'] 
-model_names = ['resnet'] 
 
 
 VAL_SIZE = 0.30
@@ -52,12 +42,13 @@ inception_img_size = 299
 
 batch_size = 32
 
+model_names = ['resnet', 'vgg', 'inception'] 
 for model_name in model_names:
-
 
     not_found = 0
     data = []
     labels = []
+    os.mkdir(model_name)
     with open(train_data, 'r') as file_:
         csv_reader = csv.reader(file_, delimiter = ":")
         for row in csv_reader:
@@ -80,9 +71,9 @@ for model_name in model_names:
 
                 except:
                     not_found += 1
-    #sample_sizes = [1000, 2000, 3000, 4000, 5000,6000,
-    #        7000, 8000, 9000, 10000, 11000, 12000, len(data)]
-    sample_sizes = [8000, 9000, 10000, 11000, 12000, len(data)]
+    sample_sizes = [1000, 2000, 3000, 4000, 5000,6000,
+            7000, 8000, 9000, 10000, 11000, 12000, len(data)]
+    sample_sizes = [len(data)]
     for sample_size in sample_sizes:
         if model_name == 'vgg':
             inp = Input((vgg_resnet_img_size, vgg_resnet_img_size, 3))
@@ -106,22 +97,16 @@ for model_name in model_names:
                                             input_shape = (inception_img_size, 
                                                 inception_img_size, 3), 
                                             pooling = 'avg')
-        #for layer in model.layers:
-        #    layer.trainable = False
         x = model.output
         x = Dense(256, activation='relu')(x)
         x = Dropout(0.1)(x)
         out = Dense(num_classes, activation='softmax')(x)
 
         model = Model(inp, out)
-        #model = multi_gpu_model(model, gpus = 4)
         sgd = optimizers.SGD(lr=0.001, decay=1e-6, momentum=0.9, nesterov=True, clipvalue = 0.5)
         es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=50)
 
-        #inceptionV3_model.compile(optimizer = 
-        #'sgd', loss = 'categorical_crossentropy', metrics=['accuracy'])
         model.compile(optimizer = 'sgd', loss = 'categorical_crossentropy', metrics=['acc'])
-        #d = random.choices(data, sample_size)
         d = data[0:sample_size]
         l = labels[0:sample_size]
         data1 = np.array(d)
@@ -130,17 +115,18 @@ for model_name in model_names:
         X_train, X_test, y_train, y_test = train_test_split(data1, labels1, 
                  test_size=0.3)
 
-        checkpoint = ModelCheckpoint(model_name + '_' + str(sample_size) + '_epoch_-{epoch:03d}-_acc_{acc:03f}-_val_acc_{val_acc:.5f}.h5', verbose=1, monitor='val_acc', save_best_only=True, mode='auto')  
+        checkpoint = ModelCheckpoint(model_name + '/' + str(sample_size) + '_epoch_-{epoch:03d}-_acc_{acc:03f}-_val_acc_{val_acc:.5f}.h5', verbose=1, monitor='val_acc', save_best_only=True, mode='auto')  
          
         train_datagen = ImageDataGenerator()#rescale=1./255)
         val_datagen = ImageDataGenerator()#rescale=1./255)
 
 
-        history = model.fit_generator(train_datagen.flow(X_train, y_train, batch_size=batch_size)
+        model.fit_generator(train_datagen.flow(X_train, y_train, batch_size=batch_size)
                 ,steps_per_epoch = len(X_train) // batch_size
                 ,validation_data=val_datagen.flow(X_test,y_test, batch_size=batch_size), 
                 validation_steps=(len(X_test))//batch_size
                 ,callbacks=[checkpoint, es]
-                ,epochs = 125, verbose = 1) 
+                ,epochs = 2, verbose = 1) 
+        continue
 
 
