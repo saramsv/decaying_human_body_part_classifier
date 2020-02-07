@@ -48,6 +48,17 @@ Will generates two different outputs. 1. image_name, label, confidence_value if 
 ```
 cat predictions | grep ":0.99" > high_confs 
 cat predictions | grep "]" > low_confs
+sed -i 's/,//g;  s/\[//g; s/\]//g' low_confs
+sed -i "s/'//g" low_confs
+python3 clustering.py --embeding_file low_confs --cluster_number [n] > clusters
+```
+To display:
+```
+bash make_html.sh clusters
+```
+And for the high confidence predictions to see both the label and the conf_value in localhost:8888:
+```
+bash make_classe_labeled_html.sh.sh clusters
 ```
 
 
