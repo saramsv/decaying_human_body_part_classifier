@@ -1,15 +1,15 @@
 #!/usr/bin/env python
 
 ## run : python3 predict_bodypart.py file_name
-#each line in file_name is a path and then : the grount truth label
+#each line in file_name is a path 
 
 import cv2
 import numpy as np
-from keras.models import load_model
+from tensorflow.keras.models import load_model
 import csv
 import sys
 import os
-from keras.preprocessing import image
+from tensorflow.keras.preprocessing import image
 import pandas as pd
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import accuracy_score
@@ -23,14 +23,17 @@ test_csv = sys.argv[1]
 
 body_parts = ['arm', 'hand', 'foot', 'legs','fullbody', 'head','backside',  'torso', 'stake', 'plastic']
 
-model_name = 'inception_10000_epoch_-118-_acc_0.999569-_val_acc_0.98315.h5'
+model_name = 'inception_epoch_-044-_acc_0.995226-_val_acc_0.96135.h5'#'models/inception_epoch_-058-_acc_0.999475-_val_acc_0.94976.h5'#'inception_10000_epoch_-118-_acc_0.999569-_val_acc_0.98315.h5'
 model_type = 'inception'
-model = load_model("models/" + model_type + '/' + model_name)
+#model = load_model("models/" + model_type + '/' + model_name)
+model = load_model(model_name)
 
 not_found = 0
 
 
 df = pd.read_csv(test_csv, names = ['path'])
+print("The results will be saved in", test_csv + '_preds')
+f = open(test_csv + '_preds', 'w')
 
 for path in df['path']:
     test_data = []
@@ -56,6 +59,8 @@ for path in df['path']:
 
         
         for i, label in enumerate(list(pred_classes)):
-            print(img_names[i]+ ":", body_parts[label], conf[i])
+            f.write("{}:{}:{:.2f}\n".format(img_names[i], body_parts[label],conf[i]*100))
+            #print(img_names[i]+ ":", body_parts[label],":", conf[i])
     except:
         not_found += 1
+f.close()

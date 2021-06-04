@@ -17,6 +17,7 @@ from keras import optimizers
 from sklearn.model_selection import train_test_split
 from keras.callbacks import EarlyStopping
 from keras.callbacks import ModelCheckpoint
+from tensorflow.keras.models import load_model
 import os
 import csv
 import sys
@@ -25,8 +26,6 @@ import sys
 train_data = sys.argv[1] 
 
 
-VAL_SIZE = 0.30
-TEST_SIZE = 0.15
 
 body_parts = ['arm', 'hand', 'foot',  'legs','fullbody', 
         'head','backside', 'torso', 'stake', 'plastic']
@@ -42,13 +41,13 @@ inception_img_size = 299
 
 batch_size = 32
 
-model_names = ['resnet', 'vgg', 'inception'] 
+model_names = ['inception']#['resnet', 'vgg', 'inception'] 
 for model_name in model_names:
 
     not_found = 0
     data = []
     labels = []
-    os.mkdir(model_name)
+    #os.mkdir(model_name)
     with open(train_data, 'r') as file_:
         csv_reader = csv.reader(file_, delimiter = ":")
         for row in csv_reader:
@@ -71,9 +70,8 @@ for model_name in model_names:
 
                 except:
                     not_found += 1
-    sample_sizes = [1000, 2000, 3000, 4000, 5000,6000,
-            7000, 8000, 9000, 10000, 11000, 12000, len(data)]
     sample_sizes = [len(data)]
+
     for sample_size in sample_sizes:
         if model_name == 'vgg':
             inp = Input((vgg_resnet_img_size, vgg_resnet_img_size, 3))
@@ -106,6 +104,7 @@ for model_name in model_names:
         sgd = optimizers.SGD(lr=0.001, decay=1e-6, momentum=0.9, nesterov=True, clipvalue = 0.5)
         es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=50)
 
+        model.load_weights('models/inception_epoch_-058-_acc_0.999475-_val_acc_0.94976.h5')
         model.compile(optimizer = 'sgd', loss = 'categorical_crossentropy', metrics=['acc'])
         d = data[0:sample_size]
         l = labels[0:sample_size]
@@ -115,18 +114,43 @@ for model_name in model_names:
         X_train, X_test, y_train, y_test = train_test_split(data1, labels1, 
                  test_size=0.3)
 
-        checkpoint = ModelCheckpoint(model_name + '/' + str(sample_size) + '_epoch_-{epoch:03d}-_acc_{acc:03f}-_val_acc_{val_acc:.5f}.h5', verbose=1, monitor='val_acc', save_best_only=True, mode='auto')  
+        #checkpoint = ModelCheckpoint(model_name + '/' + str(sample_size) + 
+        #'_epoch_-{epoch:03d}-_acc_{acc:03f}-_val_acc_{val_acc:.5f}.h5', 
+        #verbose=1, monitor='val_acc', save_best_only=True, mode='auto')  
+        checkpoint = ModelCheckpoint(model_name + '_epoch_-{epoch:03d}-_acc_{acc:03f}-_val_acc_{val_acc:.5f}.h5', 
+                verbose=1, monitor='val_acc', save_best_only=True, mode='auto')  
          
         train_datagen = ImageDataGenerator()#rescale=1./255)
         val_datagen = ImageDataGenerator()#rescale=1./255)
 
-
-        model.fit_generator(train_datagen.flow(X_train, y_train, batch_size=batch_size)
+        history = model.fit_generator(train_datagen.flow(X_train, y_train, batch_size=batch_size)
                 ,steps_per_epoch = len(X_train) // batch_size
                 ,validation_data=val_datagen.flow(X_test,y_test, batch_size=batch_size), 
                 validation_steps=(len(X_test))//batch_size
                 ,callbacks=[checkpoint, es]
-                ,epochs = 2, verbose = 1) 
-        continue
+                ,epochs = 200, verbose = 1) 
+        import bpython
+        bpython.embed(locals())
+
+        print(history.history.keys())
+        # summarize history for accuracy
+        plt.plot(history.history['acc'])
+        plt.plot(history.history['val_accuracy'])
+        plt.title('model accuracy')
+        plt.ylabel('accuracy')
+        plt.xlabel('epoch')
+        plt.legend(['train', 'test'], loc='upper left')
+        plt.savefig('acc.png')
+        # summarize history for loss
+        plt.plot(history.history['loss'])
+        plt.plot(history.history['val_loss'])
+        plt.title('model loss')
+        plt.ylabel('loss')
+        plt.xlabel('epoch')
+        plt.legend(['train', 'test'], loc='upper left')
+        plt.savefig('loss')
+
+        import bpython
+        bpython.embed(locals())
 
 
