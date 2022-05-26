@@ -3,7 +3,7 @@ Plud: Dataset curator
 --------------------------------------------------------------------------- 
 
 We are making our code for curating a human decomposition dataset freely available for reaserch to be used for other datasets that need to be labeled. If you would like to use the dataset for any other purposes please contact 
-the authors. 
+the authors. More detail is provided in the corresponding [paper](https://ieeexplore.ieee.org/abstract/document/9191300). 
 
 ## Getting Started
 These instructions will get you a copy of the project up and running on your local machine for development and testing purposes. See deployment for notes on how to deploy the project on a live system.
